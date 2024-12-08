@@ -1,42 +1,64 @@
-from tkinter import Y
-from tracemalloc import take_snapshot
+from tracemalloc import stop
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
 
 
-def GradientUpdate(alphas, dataTrain, stepSize, offset): #need to check if derivative update rule is correct
-
-    alphaLen = len(alphas)
-    trainRows, trainCols = np.shape(dataTrain)
-
-
-    for i in range(alphaLen):
-        classI = dataTrain[i, 0]
+def GradientUpdate(alphas, alphaLength, dataTrain, stepSize): #need to check if derivative update rule is correct
+    
+    deltaAlpha = []
+    
+    for i in range(alphaLength):
         featI = dataTrain[i, 1:]
-        runTemp = 0
-        for j in range(trainRows):
-            runTemp += dataTrain[j, 0] * alphas[j] * BaseKernel(dataTrain[j, 1:], featI) #PLUS OFFSET, CHECK WHEN TO MULTIPLY ALPHA SUM AND X DATA POINT
-            
-        alphas[i] += 1 - classI * runTemp
-        alphas[i] = max(0, alphas[i])
+        tempSum = 0
         
+        for j in range(alphaLength):
+            tempSum += alphas[j] * dataTrain[j, 0] * LinearKernel(dataTrain[j, 1:], featI)
+                
+        #tempSum = BaseKernel(tempSum, featI)
+            
+        tempSum = stepSize * (1 - (dataTrain[i, 0] * tempSum))
+        deltaAlpha.append(tempSum)                
+
+    #print(f'Change in Alphas:\n{deltaAlpha}')
+
+    for a in range(alphaLength):
+        alphas[a] += deltaAlpha[a]
+        alphas[a] = max(0, alphas[a])
+
     return alphas
            
-        
+       #calculate kernelized matrix of dot products
+    # kernelMatrix = np.ndarray(shape=(alphaLength, alphaLength))
+    # ones = np.ones(alphaLength)
+    # for i in range(alphaLength):
+    #     classI = dataTrain[i, 0]
+    #     featI = dataTrain[i, 1:]
+    #     for j in range(alphaLength):
+    #         kernelMatrix[i, j] = classI * dataTrain[j, 0] * BaseKernel(featI, dataTrain[j, 1:])
+
+    # print(f'Kernel Dot Prodect Matrix:\n{kernelMatrix}\n\n')
+    
+    # alphas += stepSize * (ones - np.matmul(kernelMatrix, alphas))
+    
+    # for a in range(alphaLength):
+    #     alphas[a] = max(0, alphas[a]) 
 
 
-def BaseKernel(xI, xJ):
+def LinearKernel(xI, xJ):
     return np.dot(xI, xJ)
 
+def QuadraticKernel(xI, xJ):
+    square = np.dot(xI, xJ)
+    return (square+1) * (square+1)
 
 
 def DualClassifier(alphas, dataTrain, offset, xToClass):
     
     classSum = 0
     for i in range(alphas): #if statement for alpha = 0
-        classSum += alphas[i] * dataTrain[i, 0] * BaseKernel(dataTrain[i, 1:], xToClass)
+        classSum += alphas[i] * dataTrain[i, 0] * LinearKernel(dataTrain[i, 1:], xToClass)
 
     return classSum + offset
 
@@ -46,44 +68,42 @@ def DualLearner(dataTrain, iters, stepSize):
     trainRows, trainCols = np.shape(dataTrain)
     alphas = np.ones(trainRows)
     alphaLength = len(alphas)
-
-    print(f'Begin Learner------------------\nNum Rows:{trainRows}\nNum Cols:{trainCols}')
-
+    objFunc = []
+    
     for step in range(iters):
-        argMaxList = []
-        alphaSum = 0
-        print(f'\tIteration {step}------------------------------------')
-        
+        objFuncSum = 0
+        print(f'Iteration {step}--------------------------------------------------------------------------------')
+
         for i in range(alphaLength):
-            yI = dataTrain[i, 0]
-            xI = dataTrain[i, 1:]
-            aI = alphas[i]
+            classI = dataTrain[i, 0]
+            featI = dataTrain[i, 1:]
+            alphaI = alphas[i]
             tempSum = 0
-            test_w = np.zeros(trainCols - 1)
-            print(f'\t\tAlpha Value {i}: {aI}')
 
-            for j in range(alphaLength): #add if statement for if alpha is 0
-                tempSum += aI * alphas[j] * yI * dataTrain[j, 0] * BaseKernel(xI, dataTrain[j, 1:])
-                test_w += alphas[j] * dataTrain[j, 0] * dataTrain[j, 1:]
-
-            alphaSum += aI - (tempSum / 2)
+            for j in range(alphaLength):
+                tempSum += classI * dataTrain[j, 0] * alphaI * alphas[j] * LinearKernel(dataTrain[j, 1:], featI)
             
-        wTx = []
-        print(f'\t\tClassify Test:')
-        for x in range(alphaLength):
-            wTx.append(np.dot(test_w, dataTrain[x, 1:]))
-            print(f'\t\t\tData Point {x}: {wTx[x]}')
-
-        offset = -(max(wTx[0:10]) + min(wTx[10:]))/2
-
-
-        print(f'\tAlpha Sum: {alphaSum}\n\tAlphas:\n{alphas}\n\tTest W:\t{test_w}')
-        argMaxList.append(alphaSum)
-        alphas = GradientUpdate(alphas, dataTrain, stepSize, offset)
+            #tempSum = BaseKernel(tempSum, featI)
+            #print(f'Kernel Dot Prod: {tempSum}')
+            tempSum = max(0, tempSum)
+            objFuncSum += alphaI - (tempSum / 2)
+            objFunc.append(objFuncSum)
+        #print(f'Object Function Sum: {objFunc[step]}')
         
+        alphas = GradientUpdate(alphas, alphaLength, dataTrain, stepSize)
+        #print(f'Post Gradient Alphas:\n{alphas}\n\n\n')
 
-            
+    return alphas
 
+    
+
+def GetW(alphas, dataTrain):
+    
+    w = np.zeros(len(dataTrain[0]) -1)
+    for i in range(len(alphas)):
+        w += alphas[i] * dataTrain[i, 0] * dataTrain[i, 1:]
+
+    return w
 
 def main():
     
@@ -96,20 +116,29 @@ def main():
     #print(classOne)
     #print(classZero)
 
-    rngData = np.ndarray(shape = (10, 2), dtype= int, buffer=np.random.randint(low=0, high=4, size=20))
-    rng2 = np.ndarray(shape = (10, 2), dtype= int, buffer=np.random.randint(low=6, high=10, size=20))
-    rngData = np.append(rngData, rng2, axis=0)
+    rngData = np.random.normal(0.5, 0.2, (10, 2))
+    rngData2 = np.random.normal(-0.5, 0.2, (10, 2))
+    rngData = np.append(rngData, rngData2, axis=0)
+
     rngData = pd.DataFrame(rngData)
-    rngData.insert(0, 'class', value=[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,1,1,1,1,1,1,1,1])
+    rngData.insert(0, 'class', value=1)
+    rngData = rngData.to_numpy()
+    for i in range(10):
+        rngData[i+10, 0] *= -1
+
     print(rngData)
-    
-    plt.scatter(x=rngData[0], y=rngData[1])
+    #rngData = pd.DataFrame([[1, 8, 8], [1, 6, 6], [-1, 1, 1], [-1, 4, 4]])
+    #print(rngData)
+
+    plt.scatter(x=rngData[:, 1], y=rngData[:, 2])
     plt.show()
 
 
-    iters = 10
-    testing = DualLearner(rngData.to_numpy(), 10, 0.1) 
-    
+    testingAlphas = DualLearner(rngData, 50, 0.1) 
+    print(f'Alphas:{testingAlphas}')
+    w = GetW(testingAlphas, rngData)
+    print(f'W:\n{w}')
+
 
     #PROCESS-------
     #FIND ALL ALPHAS WITH EQUATION FROM PROJECT DESCRIPTION
