@@ -183,3 +183,12 @@ valuable insights for future research and practical applications in medical imag
 9. Hunter, J. D. (2007). Matplotlib: A 2D Graphics Environment. *Computing in Science & Engineering*, 9(3), 90-95.
 10. McKinney, W. (2010). Data structures for statistical computing in Python. *Proceedings of the 9th Python in Science Conference*, 445.
 11. Bishop, C. (2006). *Pattern Recognition and Machine Learning* (pp. 291-293). Springer.
+
+
+
+
+## Authors
+
+- [@Donovan Miner](https://github.com/DonovanMiner)
+- [@Carlos Ferrer](https://github.com/Cferrer08)
+
